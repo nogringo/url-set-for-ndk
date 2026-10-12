@@ -1,3 +1,12 @@
+## 0.2.0
+
+- `ndkUrlListFn` takes a `UrlListCheckStore` to remember when each list was
+  last checked. A list checked less than `maxAge` ago resolves from NDK's
+  cache without a query, and a list checked before keeps resolving while no
+  relay answers. `MemoryUrlListCheckStore` ships with the package.
+- `ndkUrlListFn(offline: true)` resolves from NDK's cache and the checks
+  alone, without ever querying a relay.
+
 ## 0.1.0
 
 - Initial release, extracted from `RelaySet` in `broadcast_queue_shim_for_ndk`

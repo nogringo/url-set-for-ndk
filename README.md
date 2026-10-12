@@ -18,7 +18,7 @@ and
 
 ```yaml
 dependencies:
-  url_set_for_ndk: ^0.1.0
+  url_set_for_ndk: ^0.2.0
   ndk: ^0.10.0-dev.7
 ```
 
@@ -100,6 +100,37 @@ A kind 10013 is encrypted to its owner. It is decrypted once through
 `ndk.decryptedEventPayloads` and read from NDK's cache afterwards. Until then
 the owner's account must be in `ndk.accounts`, otherwise the lookup is
 `unavailable` and will be retried.
+
+### Remembering when a list was checked
+
+Without more, every lookup goes to the relays. Pass a `UrlListCheckStore` and
+`ndkUrlListFn` keeps the date of every answered query, per pubkey and kind:
+
+```dart
+final lookup = ndkUrlListFn(
+  ndk,
+  checks: MemoryUrlListCheckStore(),
+  maxAge: const Duration(hours: 1),
+);
+```
+
+- A list checked less than `maxAge` ago is read from NDK's cache, with no
+  query. That holds for a missing list too: an account without a DM list is
+  not asked again every time.
+- Past `maxAge` the relays are asked again. If none answers, the last known
+  state still holds, so a list goes on resolving offline once seen. Only a
+  list never checked is `unavailable`.
+- A list published since, by the app itself, is in NDK's cache and wins
+  whatever the date.
+- A list found but since gone from NDK's cache is asked again.
+
+`offline: true` never queries the relays and answers from NDK's cache and the
+checks alone, whatever their age. That is the lookup for a question that must
+stay local.
+
+`MemoryUrlListCheckStore` forgets everything on restart. To keep the checks,
+implement `UrlListCheckStore` on your database: `UrlListCheck.toMap()` gives a
+JSON-compatible record.
 
 To resolve without NDK, or in tests, pass any `UrlListFn`:
 

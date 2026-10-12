@@ -5,6 +5,8 @@ library;
 
 export 'src/indexer_relays.dart' show defaultIndexerRelays;
 export 'src/ndk_url_lists.dart' show ndkUrlListFn;
+export 'src/url_list_checks.dart'
+    show MemoryUrlListCheckStore, UrlListCheck, UrlListCheckStore;
 export 'src/url_set.dart'
     show
         BlossomUrls,

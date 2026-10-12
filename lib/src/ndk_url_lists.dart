@@ -4,6 +4,7 @@ import 'package:ndk/entities.dart' show Nip65, ReadWriteMarker;
 import 'package:ndk/ndk.dart';
 
 import 'indexer_relays.dart';
+import 'url_list_checks.dart';
 import 'url_set.dart';
 
 const _kPrivateRelays = 10013;
@@ -17,6 +18,16 @@ const _kPrivateRelays = 10013;
 /// relays for a list published there. [queryTimeout] bounds each query and
 /// defaults to NDK's query timeout.
 ///
+/// With [checks], the date of every answered query is kept, and a list checked
+/// less than [maxAge] ago is read from NDK's cache without going to the
+/// relays. Past [maxAge] the relays are asked again, and if none answers the
+/// last known state still holds: the cached list, or `notFound` when the list
+/// did not exist. Only a list never checked is `unavailable` then. A list
+/// found but since gone from NDK's cache is asked again whatever its age.
+///
+/// [offline] never queries the relays: the lookup answers from NDK's cache and
+/// [checks] alone, whatever their age.
+///
 /// A private relay list is decrypted through `ndk.decryptedEventPayloads`, so
 /// a given list event is decrypted once and read from NDK's cache afterwards,
 /// account or not. Otherwise the signer of the matching account in
@@ -26,14 +37,51 @@ UrlListFn ndkUrlListFn(
   Ndk ndk, {
   Iterable<String> discoveryRelays = defaultIndexerRelays,
   Duration? queryTimeout,
+  UrlListCheckStore? checks,
+  Duration maxAge = const Duration(hours: 1),
+  bool offline = false,
 }) {
   return (pubkey, kind, outboxRelays) async {
-    final response = ndk.requests.query(
-      filter: Filter(authors: [pubkey], kinds: [_eventKind(kind)]),
-      explicitRelays: {...outboxRelays, ...discoveryRelays},
-      timeout: queryTimeout,
+    final eventKind = _eventKind(kind);
+    final filter = Filter(authors: [pubkey], kinds: [eventKind]);
+    final cached = await ndk.config.cache.loadEvents(
+      pubKeys: [pubkey],
+      kinds: [eventKind],
     );
-    final events = await response.future;
+    final check = await checks?.read(pubkey, eventKind);
+    final now = DateTime.now().toUtc();
+
+    var events = cached;
+    var answered = false;
+    String? reason = offline ? 'not looked up offline' : null;
+    if (!offline && !_isFresh(check, cached.isNotEmpty, now, maxAge)) {
+      final response = ndk.requests.query(
+        filter: filter,
+        explicitRelays: {...outboxRelays, ...discoveryRelays},
+        timeout: queryTimeout,
+        cacheRead: false,
+      );
+      events = [...cached, ...await response.future];
+      final outcomes = await response.relayOutcomesDone;
+      answered = outcomes.values.any(
+        (o) => o.status == RelayRequestStatus.eose,
+      );
+      if (answered) {
+        await checks?.write(
+          UrlListCheck(
+            pubkey: pubkey,
+            kind: eventKind,
+            checkedAt: now,
+            found: events.isNotEmpty,
+          ),
+        );
+      } else {
+        reason = outcomes.isEmpty
+            ? 'no relay reached'
+            : outcomes.entries.map((e) => '${e.key}: ${e.value}').join(', ');
+      }
+    }
+
     if (events.isNotEmpty) {
       final latest = events.reduce((a, b) => b.createdAt > a.createdAt ? b : a);
       if (kind != UrlListKind.private) {
@@ -41,16 +89,20 @@ UrlListFn ndkUrlListFn(
       }
       return _decryptPrivateRelays(ndk, pubkey, latest);
     }
-    final outcomes = await response.relayOutcomesDone;
-    if (outcomes.values.any((o) => o.status == RelayRequestStatus.eose)) {
+    if (answered || check?.found == false) {
       return const UrlListLookup.notFound();
     }
-    return UrlListLookup.unavailable(
-      outcomes.isEmpty
-          ? 'no relay reached'
-          : outcomes.entries.map((e) => '${e.key}: ${e.value}').join(', '),
-    );
+    return UrlListLookup.unavailable(reason);
   };
+}
+
+/// A check vouches for NDK's cache while it is younger than [maxAge], unless
+/// the list it found is no longer there. One from the future is a clock set
+/// back since, and vouches for nothing.
+bool _isFresh(UrlListCheck? check, bool cached, DateTime now, Duration maxAge) {
+  if (check == null || check.checkedAt.isAfter(now)) return false;
+  if (check.found && !cached) return false;
+  return now.difference(check.checkedAt) < maxAge;
 }
 
 int _eventKind(UrlListKind kind) => switch (kind) {
