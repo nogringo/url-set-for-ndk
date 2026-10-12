@@ -1,8 +1,29 @@
-/// Support for doing something awesome.
-///
-/// More dartdocs go here.
+/// Relay and Blossom server sets for [ndk](https://pub.dev/packages/ndk),
+/// described as a [UrlSet] so they can be persisted offline and resolved
+/// later from the lists accounts publish.
 library;
 
-export 'src/url_set_for_ndk_base.dart';
-
-// TODO: Export any libraries intended for clients of this package.
+export 'src/indexer_relays.dart' show defaultIndexerRelays;
+export 'src/ndk_url_lists.dart' show ndkUrlListFn;
+export 'src/url_set.dart'
+    show
+        BlossomUrls,
+        DmUrls,
+        ExplicitUrls,
+        FallbackUrls,
+        InboxUrls,
+        Nip65Urls,
+        OutboxUrls,
+        PrivateUrls,
+        UnionUrls,
+        UrlListFn,
+        UrlListFound,
+        UrlListKind,
+        UrlListLookup,
+        UrlListNotFound,
+        UrlListUnavailable,
+        UrlResolution,
+        UrlSet,
+        UrlsResolved,
+        UrlsUnavailable,
+        resolveUrlSet;
