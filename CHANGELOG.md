@@ -1,3 +1,11 @@
+## 0.2.1
+
+- `ndkUrlListFn` takes an `auth` policy for its queries (NIP-42). Pass
+  `AuthPolicy.never()` to look up someone else's lists without attributing the
+  lookup to the logged account.
+- `ndkUrlListFn` never falls back to NDK's bootstrap relays: with no discovery
+  relay and no write relay to ask, the lookup is `unavailable` without a query.
+
 ## 0.2.0
 
 - `ndkUrlListFn` takes a `UrlListCheckStore` to remember when each list was

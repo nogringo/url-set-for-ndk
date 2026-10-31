@@ -3,7 +3,7 @@ description: >-
   Relay and Blossom server sets for the ndk package, described rather than
   listed so they can be persisted offline and resolved later from the NIP-65,
   NIP-17, NIP-37 and BUD-03 lists accounts publish.
-version: 0.2.0
+version: 0.2.1
 repository: https://github.com/nogringo/url-set-for-ndk
 issue_tracker: https://github.com/nogringo/url-set-for-ndk/issues
 

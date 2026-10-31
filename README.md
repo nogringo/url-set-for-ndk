@@ -18,7 +18,7 @@ and
 
 ```yaml
 dependencies:
-  url_set_for_ndk: ^0.2.0
+  url_set_for_ndk: ^0.2.1
   ndk: ^0.10.0-dev.7
 ```
 
@@ -94,7 +94,13 @@ that is up to the consumer.
 
 `ndkUrlListFn(ndk, discoveryRelays: ..., queryTimeout: ...)` reads the lists
 through `ndk.requests.query`, NDK's cache included, so a list seen before
-resolves offline. `discoveryRelays` defaults to `defaultIndexerRelays`.
+resolves offline. `discoveryRelays` defaults to `defaultIndexerRelays`. With
+no discovery relay and no write relay to ask, nothing is queried: NDK's
+bootstrap relays are never used.
+
+`auth` is the NIP-42 policy of every query, NDK's default when omitted. Pass
+`AuthPolicy.never()` to look up someone else's lists without attributing the
+lookup to the logged account.
 
 A kind 10013 is encrypted to its owner. It is decrypted once through
 `ndk.decryptedEventPayloads` and read from NDK's cache afterwards. Until then

@@ -466,6 +466,15 @@ void main() {
       expect(lookup, isA<UrlListUnavailable>());
     });
 
+    test('queries nothing with no relay to ask', () async {
+      final lookup = await ndkUrlListFn(ndk, discoveryRelays: const [])(
+        keys.publicKey,
+        UrlListKind.dm,
+        const [],
+      );
+      expect((lookup as UrlListUnavailable).reason, 'no relay to ask');
+    });
+
     test('decrypts a private list with the account signer', () async {
       await savePrivateList();
       ndk.accounts.loginPrivateKey(

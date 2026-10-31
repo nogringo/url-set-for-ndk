@@ -15,8 +15,12 @@ const _kPrivateRelays = 10013;
 /// Without an event, the lookup is `notFound` when at least one relay sent
 /// EOSE, and `unavailable` otherwise. The lists are queried on
 /// [discoveryRelays], not on NDK's bootstrap relays, plus the pubkey's write
-/// relays for a list published there. [queryTimeout] bounds each query and
-/// defaults to NDK's query timeout.
+/// relays for a list published there; with neither, nothing is queried.
+/// [queryTimeout] bounds each query and defaults to NDK's query timeout.
+///
+/// [auth] says which identity the queries may be attributed to (NIP-42), NDK's
+/// default when null. Pass `AuthPolicy.never()` to look up someone else's lists
+/// without tying the logged account to them.
 ///
 /// With [checks], the date of every answered query is kept, and a list checked
 /// less than [maxAge] ago is read from NDK's cache without going to the
@@ -37,6 +41,7 @@ UrlListFn ndkUrlListFn(
   Ndk ndk, {
   Iterable<String> discoveryRelays = defaultIndexerRelays,
   Duration? queryTimeout,
+  AuthPolicy? auth,
   UrlListCheckStore? checks,
   Duration maxAge = const Duration(hours: 1),
   bool offline = false,
@@ -50,15 +55,20 @@ UrlListFn ndkUrlListFn(
     );
     final check = await checks?.read(pubkey, eventKind);
     final now = DateTime.now().toUtc();
+    final relays = {...outboxRelays, ...discoveryRelays};
 
     var events = cached;
     var answered = false;
-    String? reason = offline ? 'not looked up offline' : null;
-    if (!offline && !_isFresh(check, cached.isNotEmpty, now, maxAge)) {
+    // NDK sends a request with no relay to its bootstrap relays.
+    String? reason = offline
+        ? 'not looked up offline'
+        : (relays.isEmpty ? 'no relay to ask' : null);
+    if (reason == null && !_isFresh(check, cached.isNotEmpty, now, maxAge)) {
       final response = ndk.requests.query(
         filter: filter,
-        explicitRelays: {...outboxRelays, ...discoveryRelays},
+        explicitRelays: relays,
         timeout: queryTimeout,
+        auth: auth,
         cacheRead: false,
       );
       events = [...cached, ...await response.future];
